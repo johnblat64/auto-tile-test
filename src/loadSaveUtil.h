@@ -9,7 +9,8 @@
  * SDL_TRUE: success
  * SDL_FALSE: error
  */
-SDL_bool saveResourceToFile( void* resource_ptr, char *filename, size_t resource_size, int num_resources ) {
+SDL_bool 
+saveResourceToFile( void* resource_ptr, char *filename, size_t resource_size, int num_resources ) {
     const char *write_binary_mode = "wb";
     SDL_RWops *write_context = SDL_RWFromFile( filename , write_binary_mode );
     if( write_context == NULL ) {
@@ -28,7 +29,8 @@ SDL_bool saveResourceToFile( void* resource_ptr, char *filename, size_t resource
  * SDL_TRUE: success
  * SDL_FALSE: error
  */
-SDL_bool loadResourceFromFile( void *resource_ptr, char *filename, size_t resource_size, int num_resources ) {
+SDL_bool 
+loadResourceFromFile( void *resource_ptr, char *filename, size_t resource_size, int num_resources ) {
     const char *read_binary_mode = "rb";
 
     SDL_RWops *read_context = SDL_RWFromFile( filename, read_binary_mode );

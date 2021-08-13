@@ -5,12 +5,13 @@
 #include <SDL2/SDL.h>
 #include "renderUtil.h"
 #include "loadSaveUtil.h"
+#include "arrUtil.h"
 
 
 
 SDL_Renderer *gRenderer = NULL;
 SDL_Color yellow = {150,80,0,200};
-SDL_Color red = {255,20,20,200};
+SDL_Color red = {255,20,20,120};
 SDL_Color gridColor = {255,255,255,50};
 SDL_Color black = {0,0,0,255};
 
@@ -18,13 +19,13 @@ SDL_Window *gWindow = NULL;
 SDL_bool gIsFullscreen = SDL_FALSE;
 
 SDL_Texture *gTilesetTexture = NULL;
-char *gTilesetFilename = "tileset.png";
-const unsigned int gTilesetRows = 4;
+char *gTilesetFilename = "res/tileset.png";
+const unsigned int gTilesetRows = 8;
 unsigned int gTilesetCols = 20;
 
 const unsigned int tileCellSize = 40;
 
-//Uint8 *gAutoTileBitmasks;
+Uint8 *gAutoTileBitmasks;
 
 const int numberOfBits = 3;
 const unsigned int gVisualBitmaskCellSize = tileCellSize/3;
@@ -35,9 +36,9 @@ Uint8 bitmaskCellValues[3][3] = {
     {0x20, 0x40, 0x80 }
 } ;
 
-#define acc2DArray(arr, row, col, numRows ) arr[ row*numRows + col ]
 
-#define set2DArrayElm(arr, row, col, numRows, val ) ( arr[ row*numRows + col ] = val ) 
+
+
 
 
 int
@@ -68,15 +69,17 @@ main() {
         exit(1);
     }
 
+    #pragma region initWindow
     Uint32 windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
     if( gIsFullscreen ) {
         windowFlags |= SDL_WINDOW_FULLSCREEN ;
     }
-    gWindow = SDL_CreateWindow( "Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, origViewportWidth, origViewportHeight, windowFlags);
+    gWindow = SDL_CreateWindow( "Tileset Bitmask Setter", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, origViewportWidth, origViewportHeight, windowFlags);
     if ( gWindow == NULL ) {
         fprintf( stderr, "Error %s\n ", SDL_GetError() );
         exit( EXIT_FAILURE );
     }
+    #pragma endregion 
 
     gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC );
     if (gRenderer == NULL ) {
@@ -84,7 +87,6 @@ main() {
         exit( EXIT_FAILURE );
     }
 
-    //SDL_RenderSetLogicalSize(gRenderer, origViewportWidth, origViewportHeight);
 
     if( SDL_SetRenderDrawBlendMode(gRenderer, SDL_BLENDMODE_BLEND) < 0 ){
         fprintf( stderr, "Error %s\n ", SDL_GetError() );
@@ -93,10 +95,8 @@ main() {
 
     tileset = loadTilesetImageFromFile(gRenderer, "res/tileset.png", 40);
 
-    Uint8 (*gAutoTileBitmasks)[gTilesetCols] = malloc(sizeof(*gAutoTileBitmasks) *gTilesetRows);
-    //free(gAutoTileBitmasks);
-    //gTilesetCols = 22;
-    //( gAutoTileBitmasks)[gTilesetCols] = (Uint8 *) malloc(sizeof(*gAutoTileBitmasks)*gTilesetRows);
+    gAutoTileBitmasks = (Uint8 *) malloc(sizeof(Uint8) * gTilesetRows * gTilesetCols);
+
 
     /***
      * Zero it out
@@ -104,12 +104,9 @@ main() {
      */
     for( int row = 0; row < gTilesetRows; row++ ) {
         for( int col = 0; col < gTilesetCols; col++ ) {
-            gAutoTileBitmasks[row][col] = 0x00;       
+            set2DArrayElm(gAutoTileBitmasks, row, col, gTilesetCols, 0x00);
         }
     }
-
-    // gAutoTileBitmasks[0][0] = 0x16; // 22
-    // gAutoTileBitmasks[ 0 ][1] = 0xB6; // 182
     
     SDL_RenderSetLogicalSize(gRenderer, gTilesetCols*tileCellSize, gTilesetRows*tileCellSize);
     
@@ -121,10 +118,8 @@ main() {
     /**
      * Run the loop
      */
-    //float ratio = 1.0f;
     while(!quitGame){
-        lmbPressed = SDL_FALSE;
-        rmbPressed = SDL_FALSE;
+
         saveButtonReleased = SDL_FALSE;
         loadButtonReleased = SDL_FALSE;
 
@@ -150,6 +145,7 @@ main() {
                 }
                 else if( event.key.keysym.sym == SDLK_s ) {
                     saveButtonReleased = SDL_TRUE;
+                    
                 }
                 else if( event.key.keysym.sym == SDLK_l) {
                     loadButtonReleased = SDL_TRUE;
@@ -158,12 +154,6 @@ main() {
             else if( event.type == SDL_WINDOWEVENT ) {
                 if( event.window.event == SDL_WINDOWEVENT_RESIZED ) {
                     SDL_Log("Window resized to %d X %d", event.window.data1, event.window.data2 );
-                    // canvasWidth = event.window.data1;
-                    // canvasHeight = event.window.data2;
-                    //ratio = (float)((float)event.window.data1/(float)origViewportWidth);
-                    //SDL_RenderSetScale( gRenderer, ratio, ratio );
-                    //SDL_SetWindowSize(gWindow, event.window.data1, tileset.rows*tileCellSize*ratio);
-                    //SDL_RenderSetLogicalSize( gRenderer, canvasWidth, canvasHeight);
                 }
             }
             else if( event.type == SDL_MOUSEBUTTONUP ) {
@@ -189,13 +179,9 @@ main() {
 
         // did player click
         if(lmbPressed) {
-            // float scaledTilesetHeight = (float)tileset.rows*(float)tileCellSize*(float)ratio;
-            // int addedHeight = windowHeight -scaledTilesetHeight ;
-            // addedHeight = addedHeight < 0 ? 0 : addedHeight;
+
             windowMousePositionToLogicalMousePosition(gRenderer, gWindow, mouseX, mouseY, &logicalMouseX, &logicalMouseY);
 
-            //mouseX = mouseX*((float)origViewportWidth/(float)windowWidth);
-            //mouseY = mouseY*((float)origViewportHeight/(float)windowHeight);
             // set the bitmask of the tile
             int rowTileClicked = logicalMouseY / tileCellSize;
             int colTileClicked = logicalMouseX / tileCellSize;
@@ -211,16 +197,42 @@ main() {
                 int bitClickedCol = relativeMouseX / bitCellSize;
                 
                 Uint8 clickedBit = bitmaskCellValues[bitClickedRow][bitClickedCol];
-                Uint8 currentBitmaskOfClickedTile = gAutoTileBitmasks[rowTileClicked][colTileClicked];
+                
+                Uint8 currentBitmaskOfClickedTile = acc2DArray(gAutoTileBitmasks, rowTileClicked, colTileClicked, gTilesetCols);
+
+                currentBitmaskOfClickedTile |= clickedBit;
+
+                set2DArrayElm(gAutoTileBitmasks, rowTileClicked, colTileClicked, gTilesetCols, currentBitmaskOfClickedTile);
+            }
+        }
+        if(rmbPressed) {
+
+            windowMousePositionToLogicalMousePosition(gRenderer, gWindow, mouseX, mouseY, &logicalMouseX, &logicalMouseY);
+
+            // set the bitmask of the tile
+            int rowTileClicked = logicalMouseY / tileCellSize;
+            int colTileClicked = logicalMouseX / tileCellSize;
+            if((rowTileClicked < gTilesetRows && colTileClicked < gTilesetCols) ) {
+                int tileOffsetX = colTileClicked*tileCellSize;
+                int tileOffsetY = rowTileClicked*tileCellSize;
+                
+                int bitCellSize = tileCellSize*0.3333;
+                int relativeMouseX = logicalMouseX - tileOffsetX;
+                int relativeMouseY = logicalMouseY - tileOffsetY;
+
+                int bitClickedRow = relativeMouseY / bitCellSize;
+                int bitClickedCol = relativeMouseX / bitCellSize;
+                
+                Uint8 clickedBit = bitmaskCellValues[bitClickedRow][bitClickedCol];
+                
+                Uint8 currentBitmaskOfClickedTile = acc2DArray(gAutoTileBitmasks, rowTileClicked, colTileClicked, gTilesetCols);
                 
                 if( (clickedBit & currentBitmaskOfClickedTile ) == clickedBit ) {
                     currentBitmaskOfClickedTile ^= clickedBit;
                 }
                 
-                else {
-                    currentBitmaskOfClickedTile |= clickedBit;
-                }
-                gAutoTileBitmasks[rowTileClicked][colTileClicked] = currentBitmaskOfClickedTile;
+            
+                set2DArrayElm(gAutoTileBitmasks, rowTileClicked, colTileClicked, gTilesetCols, currentBitmaskOfClickedTile);
             }
         }
 
@@ -254,11 +266,7 @@ main() {
         // render the tileset
         SDL_Rect tilesetRenderRect = {0,0,tileset.cols*tileset.tileCellSize,tileset.rows*tileset.tileCellSize};
         SDL_RenderCopy(gRenderer, tileset.texture, NULL, &tilesetRenderRect );
-        // set midpoint
-        // SDL_Rect visualBitmaskCenterRect;
-        // visualBitmaskCenterRect.w = gVisualBitmaskCellSize;
-        // visualBitmaskCenterRect.h = gVisualBitmaskCellSize;
-        // for( int row)
+
 
         SDL_SetRenderDrawColor( gRenderer,red.r,red.g,red.b,red.a );
         SDL_Rect visualBitmaskRect;
@@ -285,7 +293,8 @@ main() {
                 unsigned int visualCellIdx = 0;
                 for( int i = 0; i < 8; i++ ) {
                     value = rightMostOne << i;
-                    currentAutoTileBitmask = gAutoTileBitmasks[row][col];
+                    currentAutoTileBitmask = acc2DArray(gAutoTileBitmasks, row, col, gTilesetCols);
+
                     visualCellIdx = i >= 4 ? i+1 : i; // skip over idx 4 in visual. 
                     if( (currentAutoTileBitmask & value) == value ) { // bit is selected
 
@@ -305,8 +314,6 @@ main() {
                             visualBitmaskRect.x = offsetInTilesetX + ( (visualCellIdx%numberOfBits)*gVisualBitmaskCellSize);
                             visualBitmaskRect.y = 2*gVisualBitmaskCellSize + offsetInTilesetY ;
                         }
-                        // visualBitmaskRect.x = offsetInTilesetX +  ( (i%numberOfBits)*gVisualBitmaskCellSize);
-                        // visualBitmaskRect.y = offsetInTilesetY + ((i%numberOfBits) *gVisualBitmaskCellSize);
                         SDL_RenderFillRect(gRenderer, &visualBitmaskRect);
                     }
                 }
@@ -317,6 +324,7 @@ main() {
 
 
         SDL_RenderPresent(gRenderer );
+        printf("hi\n");
     }
 
     SDL_DestroyRenderer( gRenderer );
